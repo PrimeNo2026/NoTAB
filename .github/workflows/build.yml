@@ -1,0 +1,41 @@
+name: Build und Release
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: ZIP automatisch entpacken
+        run: |
+          ZIP=$(ls *.zip | head -n 1)
+          echo "Entpacke $ZIP"
+          mkdir -p project
+          unzip -q "$ZIP" -d project
+          POM=$(find project -name pom.xml | head -n 1)
+          echo "PROJECT_DIR=$(dirname "$POM")" >> "$GITHUB_ENV"
+
+      - name: Java 25 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Bauen
+        run: mvn -B -f "$PROJECT_DIR/pom.xml" clean package
+
+      - name: Release mit .jar erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: TabToggle Build ${{ github.run_number }}
+          files: ${{ env.PROJECT_DIR }}/target/TabToggle-*.jar
